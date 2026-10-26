@@ -65,4 +65,4 @@
 - DeepSeek 等外部模型请求需要本机可用的密钥与网络。真实 .env、演示密码、Token 与运行日志都不能进入公开仓库。
 - 这是本地作品演示。公开 README、截图和录屏可以独立发布；公网可交互服务尚未部署。
 - 匿名截图请保存到 [screenshots](screenshots/README.md)，并在发布前检查画面不含密码、Token 或真实个人资料。
-- CareerHub 当前仓库的配置文件与历史记录尚需脱敏审查；请勿直接将现有仓库设为公开。
+- 对外展示只使用 CareerAI 与 CareerHub-showcase 两个独立仓库；本机配置和原开发仓库的历史不属于展示材料。
