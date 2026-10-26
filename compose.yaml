@@ -1,0 +1,149 @@
+name: career-stack
+
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: careerhub
+      MYSQL_USER: careerapp
+      MYSQL_PASSWORD: ${MYSQL_APP_PASSWORD:?Set MYSQL_APP_PASSWORD in .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../CareerHub/sql/schema.sql:/docker-entrypoint-initdb.d/01-careerhub.sql:ro
+      - ./docker/mysql/02-careerai.sql:/docker-entrypoint-initdb.d/02-careerai.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  redis:
+    image: redis:7.4.11-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  pgvector:
+    image: pgvector/pgvector:0.8.7-pg16-bookworm
+    environment:
+      POSTGRES_USER: careerai
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?Set PG_PASSWORD in .env}
+      POSTGRES_DB: careerai_rag
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+      - ./docker/pgvector/01-rag-chunk.sql:/docker-entrypoint-initdb.d/01-rag-chunk.sql:ro
+      - ./careerai-server/sql/u51_rag_import_task.sql:/docker-entrypoint-initdb.d/02-rag-import-task.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+
+  rabbitmq:
+    image: rabbitmq:4.3.6-management
+    environment:
+      RABBITMQ_DEFAULT_USER: careerai
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD:?Set RABBIT_PASSWORD in .env}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  ollama:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    command: ["pull", "bge-m3"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  careerhub:
+    build:
+      context: ../CareerHub
+      dockerfile: Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/careerhub?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: careerapp
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD:?Set MYSQL_APP_PASSWORD in .env}
+      SPRING_DATA_REDIS_HOST: redis
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+    volumes:
+      - careerhub_uploads:/app/uploads/resumes
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  careerai:
+    build:
+      context: ./careerai-server
+      dockerfile: Dockerfile
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?Set DEEPSEEK_API_KEY in .env}
+      CAREERAI_DB_USER: careerapp
+      CAREERAI_DB_PASSWORD: ${MYSQL_APP_PASSWORD:?Set MYSQL_APP_PASSWORD in .env}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/careerai?useUnicode=true&characterEncoding=utf-8
+      CAREERAI_PG_PASSWORD: ${PG_PASSWORD:?Set PG_PASSWORD in .env}
+      RAG_DATASOURCE_JDBC_URL: jdbc:postgresql://pgvector:5432/careerai_rag
+      SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
+      CAREERHUB_BASE_URL: http://careerhub:8080
+      SPRING_RABBITMQ_HOST: rabbitmq
+      CAREERAI_RABBIT_USER: careerai
+      CAREERAI_RABBIT_PASSWORD: ${RABBIT_PASSWORD:?Set RABBIT_PASSWORD in .env}
+      CAREERAI_IMPORT_ENABLED: "true"
+      CAREERAI_IMPORT_KEY: ${IMPORT_KEY:?Set IMPORT_KEY in .env}
+      CAREERAI_IMPORT_STORAGE_DIR: /app/uploads/knowledge
+    volumes:
+      - careerai_uploads:/app/uploads/knowledge
+    ports:
+      - "127.0.0.1:8081:8081"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      pgvector:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+      careerhub:
+        condition: service_started
+
+volumes:
+  mysql_data:
+  redis_data:
+  pgvector_data:
+  rabbitmq_data:
+  ollama_data:
+  careerhub_uploads:
+  careerai_uploads:

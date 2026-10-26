@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="CareerHub 与 CareerAI 的本地交互演示：从匿名简历和岗位原文出发，查看有来源的匹配分析。">
+  <title>CareerAI · 有依据的岗位匹配演示</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top" aria-label="CareerAI 演示首页">
+        <span class="brand-mark" aria-hidden="true">C<span>↗</span></span>
+        <span>CareerAI <small>LOCAL DEMO</small></span>
+      </a>
+      <a class="top-link" href="#demo">开始演示 <span aria-hidden="true">↗</span></a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero wrap">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="status-dot"></span> U54 / 本地交互演示</p>
+        <h1>让岗位匹配<br><em>有据可查。</em></h1>
+        <p class="hero-lead">上传一份匿名简历，选择真实存入 CareerHub 的岗位。CareerAI 会从简历、岗位 JD 与知识库中检索相关片段，再解释匹配点和证据缺口。</p>
+        <div class="hero-actions">
+          <a class="primary-link" href="#demo">体验完整流程 <span aria-hidden="true">→</span></a>
+          <span class="hero-note">演示数据完全虚构 · 服务运行在本机</span>
+        </div>
+      </div>
+      <div class="flow-board" aria-label="系统处理流程">
+        <div class="flow-head"><span>从问题到证据</span><span>01 / 04</span></div>
+        <div class="flow-node"><span class="flow-num">01</span><div><strong>登录与上传</strong><small>CareerHub · JWT / PDF</small></div></div>
+        <div class="flow-line"></div>
+        <div class="flow-node"><span class="flow-num">02</span><div><strong>选择目标岗位</strong><small>CareerHub · 岗位原文</small></div></div>
+        <div class="flow-line"></div>
+        <div class="flow-node"><span class="flow-num">03</span><div><strong>切块与检索</strong><small>CareerAI · Ollama / pgvector</small></div></div>
+        <div class="flow-line"></div>
+        <div class="flow-node flow-node-last"><span class="flow-num">04</span><div><strong>带来源的回答</strong><small>[R] 简历 · [J] 岗位 · [K] 知识库</small></div></div>
+        <div class="flow-foot">模型负责表述，原文负责提供依据。</div>
+      </div>
+    </section>
+
+    <section class="demo-section" id="demo">
+      <div class="wrap">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">INTERACTIVE WORKSPACE</p>
+            <h2>从一份简历开始</h2>
+          </div>
+          <p>页面调用当前运行的 Java 接口；刷新页面后需重新登录，Token 不保存在浏览器本地存储中。</p>
+        </div>
+
+        <div class="workspace">
+          <aside class="controls">
+            <section class="control-step">
+              <div class="step-title"><span class="step-index">01</span><div><h3>登录演示账号</h3><p>CareerHub 验证身份并签发 Token</p></div></div>
+              <form id="login-form">
+                <label for="email">邮箱</label>
+                <input id="email" name="email" type="email" value="careerai-u54-demo@example.invalid" autocomplete="username" required>
+                <label for="password">密码</label>
+                <input id="password" name="password" type="password" placeholder="输入你设置的本地演示密码" autocomplete="current-password" required>
+                <button id="login-button" class="button button-dark" type="submit">登录并读取简历 <span aria-hidden="true">→</span></button>
+              </form>
+              <p id="session-state" class="hint" aria-live="polite">尚未登录</p>
+            </section>
+
+            <section class="control-step">
+              <div class="step-title"><span class="step-index">02</span><div><h3>选择匿名简历</h3><p>PDF 保存在 CareerHub，CareerAI 按需下载</p></div></div>
+              <label for="resume-select">本账号的简历</label>
+              <select id="resume-select" disabled><option value="">登录后读取简历</option></select>
+              <div class="upload-row">
+                <label class="file-label" for="resume-file">另选 PDF 文件</label>
+                <input id="resume-file" type="file" accept=".pdf,application/pdf" disabled>
+                <button id="upload-button" class="button button-quiet" type="button" disabled>上传</button>
+              </div>
+              <p id="resume-state" class="hint" aria-live="polite">当前演示使用虚构资料，请勿上传真实个人信息。</p>
+            </section>
+
+            <section class="control-step control-step-last">
+              <div class="step-title"><span class="step-index">03</span><div><h3>选择在招岗位</h3><p>从 CareerHub 读取完整岗位 JD</p></div></div>
+              <label for="keyword">搜索关键词</label>
+              <div class="search-row">
+                <input id="keyword" type="search" value="Java" placeholder="例如 Java">
+                <button id="search-button" class="button button-quiet" type="button">搜索</button>
+              </div>
+              <div id="job-list" class="job-list" aria-live="polite"><p class="hint">正在读取岗位…</p></div>
+            </section>
+          </aside>
+
+          <section class="analysis-panel" aria-labelledby="analysis-title">
+            <div class="analysis-header">
+              <div><p class="eyebrow">EVIDENCE BASED ANALYSIS</p><h3 id="analysis-title">匹配分析</h3></div>
+              <span class="analysis-badge">RAG · 指定岗位</span>
+            </div>
+            <div class="selection-bar">
+              <span>简历 <strong id="selected-resume">未选择</strong></span>
+              <span class="selection-arrow" aria-hidden="true">↗</span>
+              <span>岗位 <strong id="selected-job">未选择</strong></span>
+            </div>
+            <label for="question">你想知道什么？</label>
+            <textarea id="question" rows="4" maxlength="500">请依据这份简历和岗位 JD，分别列出有证据的必要条件、当前简历没有证据的必要条件，以及加分项；引用 [R] 和 [J] 来源，不要把简历未写当成候选人不会。</textarea>
+            <button id="compare-button" class="button button-accent" type="button" disabled>生成有依据的分析 <span aria-hidden="true">→</span></button>
+            <p id="analysis-state" class="analysis-state" aria-live="polite">登录、选择简历和岗位后即可分析。</p>
+
+            <div id="answer-empty" class="answer-empty">
+              <div class="empty-symbol" aria-hidden="true">“</div>
+              <p>结果会在这里呈现</p>
+              <span>你可以检查每条结论引用的是简历 [R]、岗位 [J]，还是通用知识 [K]。</span>
+            </div>
+            <div id="answer-card" class="answer-card" hidden>
+              <div class="answer-top"><span class="status-dot"></span> 分析结果 <span id="elapsed"></span></div>
+              <div id="answer-content" class="markdown"></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section class="method wrap">
+      <div class="method-intro"><p class="eyebrow">HOW TO READ THE RESULT</p><h2>结论要能回到原文。</h2></div>
+      <div class="method-grid">
+        <article><span class="method-tag">[R]</span><h3>简历证据</h3><p>只用于说明候选人在简历中写了什么。未写出的能力应标为“当前无证据”。</p></article>
+        <article><span class="method-tag">[J]</span><h3>岗位要求</h3><p>判断必要条件与加分项时，以选中岗位的 JD 原文为准。</p></article>
+        <article><span class="method-tag">[K]</span><h3>通用知识</h3><p>帮助给出准备建议，不能替代简历经历或虚构岗位要求。</p></article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer"><div class="wrap"><strong>CareerAI</strong><span>本地演示 · 匿名样例 · 模型输出需人工核实</span></div></footer>
+</body>
+</html>

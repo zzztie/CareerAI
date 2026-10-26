@@ -1,0 +1,13 @@
+# Local override for a machine that already has bge-m3 in the
+# careerai-ollama Docker volume. Keep compose.yaml self-contained for
+# environments where Ollama can download the model normally.
+services:
+  ollama-pull:
+    # The base file downloads the model. Here we only verify the model
+    # already present in the shared volume before CareerAI starts.
+    command: ["show", "bge-m3"]
+
+volumes:
+  ollama_data:
+    external: true
+    name: careerai-ollama

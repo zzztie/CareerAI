@@ -1,0 +1,5 @@
+U51 异步知识库导入测试。
+
+上传接口保存文档，创建 PENDING 任务，然后向 RabbitMQ 发送任务 ID。消费者根据任务 ID 找到原文件，读取文本并切块。
+
+消费者调用 Ollama 的 bge-m3 模型生成向量，将文本块和向量写入 PostgreSQL。处理成功后，任务状态变为 SUCCEEDED。
